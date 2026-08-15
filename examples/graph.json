@@ -1,0 +1,8 @@
+{
+  "nodes": [
+    {"name":"user","kind":"source","source_labels":["public","secret"]},
+    {"name":"redact","removes":["secret"]},
+    {"name":"log","kind":"sink","allowed_labels":["public"]}
+  ],
+  "edges": [["user","redact"],["redact","log"]]
+}
