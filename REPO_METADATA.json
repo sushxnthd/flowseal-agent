@@ -1,0 +1,6 @@
+{
+  "name": "flowseal-agent",
+  "description": "Label-based information-flow auditing for agent and tool pipelines.",
+  "day": 5,
+  "cluster": "formal-methods-correctness"
+}

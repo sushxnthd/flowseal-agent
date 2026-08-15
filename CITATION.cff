@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use flowseal-agent, please cite this software."
+title: "flowseal-agent"
+authors:
+  - family-names: "sushanth"
+version: 0.1.0
+date-released: 2026-08-15
+license: MIT
+repository-code: "https://github.com/sushxnthd/flowseal-agent"
