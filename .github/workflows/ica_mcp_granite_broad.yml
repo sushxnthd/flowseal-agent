@@ -1,0 +1,165 @@
+name: ICA broad MCP-GRANITE closed-loop replication
+
+on:
+  push:
+    branches: [research/ica-mcp-granite-broad]
+    paths:
+      - experiments/mcp_granite_broad/**
+      - .github/workflows/ica_mcp_granite_broad.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ica-mcp-granite-broad-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  shard:
+    name: ${{ matrix.model.slug }} / ${{ matrix.domain }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        model:
+          - {tag: "granite4:3b", slug: "granite4-3b"}
+          - {tag: "llama3.2:3b", slug: "llama3.2-3b"}
+          - {tag: "qwen2.5:3b", slug: "qwen2.5-3b"}
+        domain:
+          - smarthome
+          - industrial
+          - fleet
+          - agriculture
+          - energy
+          - warehouse
+          - surveillance
+          - healthcare
+          - robotics
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record frozen protocol commit
+        run: |
+          mkdir -p shard_meta
+          git rev-parse HEAD | tee shard_meta/study_commit.txt
+          printf '%s\n' 'fbc29280813e9f091e2933b66dc0474c7f6f2cfd' > shard_meta/mcp_granite_commit.txt
+          printf '%s\n' '${{ matrix.model.tag }}' > shard_meta/model_tag.txt
+          printf '%s\n' '${{ matrix.domain }}' > shard_meta/domain.txt
+
+      - name: Checkout pinned MCP-GRANITE
+        run: |
+          git clone https://github.com/dpasch01/mcp-granite.git vendor/mcp-granite
+          cd vendor/mcp-granite
+          git checkout --detach fbc29280813e9f091e2933b66dc0474c7f6f2cfd
+          test "$(git rev-parse HEAD)" = "fbc29280813e9f091e2933b66dc0474c7f6f2cfd"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Python dependencies
+        working-directory: vendor/mcp-granite
+        run: |
+          uv python install 3.12
+          uv sync --locked
+
+      - name: Install pinned Ollama
+        run: |
+          curl -fsSL -o /tmp/ollama-install.sh https://github.com/ollama/ollama/releases/download/v0.40.12/install.sh
+          echo "25f64b810b947145095956533e1bdf56eacea2673c55a7e586be4515fc882c9f  /tmp/ollama-install.sh" | sha256sum -c -
+          OLLAMA_VERSION=0.40.12 sh /tmp/ollama-install.sh
+          ollama --version | tee shard_meta/ollama_version.txt
+
+      - name: Start Ollama and pull frozen model tag
+        env:
+          OLLAMA_NUM_PARALLEL: "1"
+          OLLAMA_MAX_LOADED_MODELS: "1"
+          OLLAMA_KEEP_ALIVE: "-1"
+          OLLAMA_CONTEXT_LENGTH: "8192"
+          MODEL: ${{ matrix.model.tag }}
+        run: |
+          nohup ollama serve > shard_meta/ollama_server.log 2>&1 &
+          echo $! > shard_meta/ollama_pid.txt
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          ollama pull "$MODEL"
+          ollama list | tee shard_meta/ollama_list.txt
+          ollama show "$MODEL" --modelfile > shard_meta/model_modelfile.txt || true
+
+      - name: Run all nine scenarios in domain across four granularities and three repetitions
+        env:
+          MODEL: ${{ matrix.model.tag }}
+          DOMAIN: ${{ matrix.domain }}
+          OLLAMA_CONTEXT_SIZE: "8192"
+        working-directory: vendor/mcp-granite
+        run: |
+          cat > /tmp/ica_mcp_granite.yaml <<EOF
+          scenarios_dir: scenarios
+          models: ["$MODEL"]
+          domains: ["$DOMAIN"]
+          granularities: [primitive, composite_4, composite_2, composite_1]
+          fault_rates: [0.0]
+          repetitions: 3
+          max_difficulty: hard
+          max_agent_turns: 20
+          agent_timeout_seconds: 120.0
+          results_dir: results
+          EOF
+          cat /tmp/ica_mcp_granite.yaml
+          uv run mcp-granite run --config /tmp/ica_mcp_granite.yaml
+          RUN_DIR=$(ls -dt results/run_* | head -1)
+          test -f "$RUN_DIR/results.jsonl"
+          mkdir -p "$GITHUB_WORKSPACE/shard"
+          cp -a "$RUN_DIR"/. "$GITHUB_WORKSPACE/shard/"
+          cp /tmp/ica_mcp_granite.yaml "$GITHUB_WORKSPACE/shard/config.yaml"
+
+      - name: Check shard record count
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path("shard/results.jsonl")
+          rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()]
+          print("records",len(rows))
+          assert len(rows)==108, len(rows)
+          ks={(r["condition"]["model"],r["condition"]["domain"],r["condition"]["granularity"],r["condition"]["scenario_id"],r["condition"]["repetition"]) for r in rows}
+          assert len(ks)==108, len(ks)
+          print("errors",sum(r.get("error") not in (None,"") for r in rows))
+          print("timeouts",sum(bool(r.get("trace_summary",{}).get("timed_out",False)) for r in rows))
+          PY
+          cp -a shard_meta shard/meta
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-granite-${{ matrix.model.slug }}-${{ matrix.domain }}
+          path: shard/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate all 2,916 declared conditions
+    if: always()
+    needs: shard
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mcp-granite-*
+          path: combined
+
+      - name: Analyze without dropping failures
+        run: |
+          python experiments/mcp_granite_broad/analyze.py combined --out analysis | tee analysis_stdout.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-granite-broad-analysis
+          path: |
+            analysis/
+            analysis_stdout.txt
+          if-no-files-found: warn
+          retention-days: 30
