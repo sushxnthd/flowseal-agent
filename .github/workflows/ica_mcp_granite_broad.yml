@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ica-mcp-granite-broad-${{ github.ref }}
+  group: ica-mcp-granite-broad-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
