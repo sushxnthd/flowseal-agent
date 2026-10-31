@@ -13,13 +13,13 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Validate frozen experiment
         run: python -m py_compile experiments/ica_closed_loop/experiment.py
       - name: Run closed-loop audit
-        run: python experiments/ica_closed_loop/experiment.py --out results --tasks 8 --concurrency 8
+        run: python experiments/ica_closed_loop/experiment.py --out results --tasks 8 --concurrency 2
       - name: Print summary
         if: always()
         run: test -f results/summary.json && cat results/summary.json || true
