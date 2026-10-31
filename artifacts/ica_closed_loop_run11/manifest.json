@@ -1,0 +1,29 @@
+{
+  "seed": 267,
+  "models": [
+    "koboldcpp/Qwen2.5-Coder-3B-Instruct",
+    "koboldcpp/llama-3.2-3b-instruct-q4_k_m"
+  ],
+  "tasks": [
+    {"task_id":1,"initial":{"amber":4,"cobalt":1,"jade":8,"violet":6},"specs":[["ADD_COPY",{"src":"amber","dst":"violet","delta":3}],["COPY_ADD",{"src":"violet","dst":"amber","delta":4}]],"target":[["ADD","amber",3],["COPY","amber","violet"],["COPY","violet","amber"],["ADD","amber",4]],"goal":{"amber":11,"cobalt":1,"jade":8,"violet":7},"instruction":"First increase amber by 3 and copy the resulting value into violet. Then copy violet into amber and then increase amber by 4. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":2,"initial":{"amber":4,"cobalt":1,"jade":1,"violet":9},"specs":[["COPY_ADD",{"src":"cobalt","dst":"jade","delta":3}],["ADD_COPY",{"src":"violet","dst":"cobalt","delta":-4}]],"target":[["COPY","cobalt","jade"],["ADD","jade",3],["ADD","violet",-4],["COPY","violet","cobalt"]],"goal":{"amber":4,"cobalt":5,"jade":4,"violet":5},"instruction":"First copy cobalt into jade and then increase jade by 3. Then increase violet by -4 and copy the resulting value into cobalt. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":3,"initial":{"amber":6,"cobalt":6,"jade":2,"violet":9},"specs":[["SET_COPY",{"src":"jade","dst":"amber","value":15}],["COPY_ADD",{"src":"violet","dst":"cobalt","delta":3}]],"target":[["SET","jade",15],["COPY","jade","amber"],["COPY","violet","cobalt"],["ADD","cobalt",3]],"goal":{"amber":15,"cobalt":12,"jade":15,"violet":9},"instruction":"First set jade to 15 and copy that value into amber. Then copy violet into cobalt and then increase cobalt by 3. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":4,"initial":{"amber":4,"cobalt":9,"jade":6,"violet":8},"specs":[["SWAP_ADD",{"a":"violet","b":"amber","delta":2}],["ADD_COPY",{"src":"amber","dst":"violet","delta":-2}]],"target":[["SWAP","violet","amber"],["ADD","violet",2],["ADD","amber",-2],["COPY","amber","violet"]],"goal":{"amber":6,"cobalt":9,"jade":6,"violet":6},"instruction":"First swap violet with amber and then increase violet by 2. Then increase amber by -2 and copy the resulting value into violet. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":5,"initial":{"amber":1,"cobalt":4,"jade":1,"violet":8},"specs":[["ADD_COPY",{"src":"jade","dst":"cobalt","delta":3}],["SET_COPY",{"src":"violet","dst":"cobalt","value":15}]],"target":[["ADD","jade",3],["COPY","jade","cobalt"],["SET","violet",15],["COPY","violet","cobalt"]],"goal":{"amber":1,"cobalt":15,"jade":4,"violet":15},"instruction":"First increase jade by 3 and copy the resulting value into cobalt. Then set violet to 15 and copy that value into cobalt. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":6,"initial":{"amber":5,"cobalt":9,"jade":4,"violet":6},"specs":[["COPY_ADD",{"src":"jade","dst":"violet","delta":-2}],["SWAP_ADD",{"a":"jade","b":"violet","delta":-3}]],"target":[["COPY","jade","violet"],["ADD","violet",-2],["SWAP","jade","violet"],["ADD","jade",-3]],"goal":{"amber":5,"cobalt":9,"jade":-1,"violet":4},"instruction":"First copy jade into violet and then increase violet by -2. Then swap jade with violet and then increase jade by -3. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":7,"initial":{"amber":3,"cobalt":3,"jade":4,"violet":2},"specs":[["SET_COPY",{"src":"jade","dst":"violet","value":4}],["ADD_COPY",{"src":"violet","dst":"jade","delta":-3}]],"target":[["SET","jade",4],["COPY","jade","violet"],["ADD","violet",-3],["COPY","violet","jade"]],"goal":{"amber":3,"cobalt":3,"jade":1,"violet":1},"instruction":"First set jade to 4 and copy that value into violet. Then increase violet by -3 and copy the resulting value into jade. Do exactly those operations in order and do not alter any other register."},
+    {"task_id":8,"initial":{"amber":7,"cobalt":4,"jade":5,"violet":1},"specs":[["SWAP_ADD",{"a":"jade","b":"violet","delta":4}],["COPY_ADD",{"src":"cobalt","dst":"jade","delta":4}]],"target":[["SWAP","jade","violet"],["ADD","jade",4],["COPY","cobalt","jade"],["ADD","jade",4]],"goal":{"amber":7,"cobalt":4,"jade":8,"violet":5},"instruction":"First swap jade with violet and then increase jade by 4. Then copy cobalt into jade and then increase jade by 4. Do exactly those operations in order and do not alter any other register."}
+  ],
+  "interfaces": {
+    "fine": "Available tools (one primitive operation per call):\nADD key delta\nCOPY src dst\nSET key value\nSWAP a b",
+    "macro": "Available tools (each call atomically executes the two listed primitive operations):\nADD_COPY src dst delta   = ADD src delta; COPY src dst\nCOPY_ADD src dst delta   = COPY src dst; ADD dst delta\nSET_COPY src dst value   = SET src value; COPY src dst\nSWAP_ADD a b delta       = SWAP a b; ADD a delta"
+  },
+  "scoring": {
+    "P_fine": "mean exact positional primitive correctness over 4 canonical primitive events",
+    "P_macro": "mean all-correct score over fixed target pairs [1,2] and [3,4]",
+    "decision_threshold": 0.5,
+    "decision_threshold_rationale": "predeclared before inspecting outcomes; matches the documented DeepEval default threshold used elsewhere in the paper"
+  },
+  "endpoint": "all four register values equal target final state",
+  "frozen_before_inference": true
+}
