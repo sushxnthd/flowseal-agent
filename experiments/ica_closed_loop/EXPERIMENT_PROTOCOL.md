@@ -1,61 +1,76 @@
-# ICA closed-loop I×P experiment — frozen protocol
+# ICA closed-loop I×P experiment — authoritative protocol and provenance
 
-Frozen before inference on 2026-10-31.
+## Scope
+
+This is the experiment reported in the IEEE ICA camera-ready paper. The scientific design was encoded in the executable source before any usable result:
+
+- `57ed1b1dda64a8c1e658bf0c1283e440d8b01ffa` — deterministic register tasks, seed 267, two model IDs, primitive/macro interfaces, canonical primitive targets, endpoint metric, and crossed scoring.
+- `bb1961f92a74bebbf004c1178ea4201ab9de3547` — adds the downstream 0.5 pass threshold before outcomes were read.
+- `9a03c3273968456702c5328ec4f0995a76e439c0` — changes workflow concurrency only; scientific design unchanged.
+
+A later inventory-fulfillment draft was accidentally written to this prose file after those source anchors. It was never used by the workflow or paper and has been removed. The pre-outcome executable commits above are the authoritative record.
 
 ## Question
+
 Does a model-visible change in tool granularity change closed-loop behavior, and how does that behavioral effect interact with a separately chosen scoring partition?
 
 ## Models
-Exactly two currently-online public AI Horde models:
+
+Exactly two public AI Horde model identifiers:
 1. `koboldcpp/Qwen2.5-Coder-3B-Instruct`
 2. `koboldcpp/llama-3.2-3b-instruct-q4_k_m`
 
-No model is added, removed, or replaced based on outcomes.
-
 ## Tasks
-Eight deterministic inventory-fulfillment tasks T01–T08. The decision rule is fixed:
-`available = on_hand - reserved`; answer YES iff `available >= needed`.
-Incoming stock and reorder point are distractors and never count toward immediate fulfillment.
+
+Eight deterministic register-edit workflows generated with seed 267. Each task has four canonical primitive operations and a deterministic target state over registers `amber`, `cobalt`, `jade`, and `violet`.
 
 ## Interface factor I
-- `I_fine`: primitive tools `read_on_hand`, `read_reserved`, `read_incoming`, `read_reorder_point`, `subtract`, `add`, `compare_ge`, `compare_le`, plus `finish`.
-- `I_macro`: fixed two-operation composites. `inventory_snapshot` expands to `read_on_hand + read_reserved`; `fulfillment_check` expands to `subtract + compare_ge`. Two distractor macros, `future_inventory_snapshot` and `restock_check`, are likewise fixed compositions of the corresponding distractor primitives. Macro outputs expose both component results.
 
-The macro interface is defined before inference and is never selected from observed errors.
+`I_fine` exposes primitive operations:
+- `ADD key delta`
+- `COPY src dst`
+- `SET key value`
+- `SWAP a b`
 
-## Canonical primitive trace
-Every executed macro is deterministically expanded into its underlying primitive operations. Thus trajectories from either interface are mapped to the same primitive vocabulary before scoring.
+The fine interface has exactly four model calls.
+
+`I_macro` exposes fixed two-operation macros:
+- `ADD_COPY = ADD; COPY`
+- `COPY_ADD = COPY; ADD`
+- `SET_COPY = SET; COPY`
+- `SWAP_ADD = SWAP; ADD`
+
+The macro interface has exactly two model calls. Every macro deterministically expands to two primitives, so either interface maps to exactly four canonical primitive events. After every model call the deterministic executor updates state and the next model turn sees the resulting register state.
 
 ## Scoring factor P
-The expected primitive sequence has four steps:
-1. read_on_hand(sku)
-2. read_reserved(sku)
-3. subtract(on_hand,reserved)
-4. compare_ge(available,needed)
 
-`P_fine`: mean correctness of the four required primitive steps.
+Every realized canonical trajectory is scored under both representations:
 
-`P_macro`: two predeclared contiguous blocks, [1,2] and [3,4]. A block scores 1 iff both constituent primitive steps are correct; the final score is the mean of the two block labels.
+- `P_fine`: mean exact positional correctness of the four primitive events.
+- `P_macro`: fixed blocks [1,2] and [3,4]; a block passes iff both constituent primitive events are correct; score is the mean of the two block bits.
 
-Extra distractor operations do not erase a correctly executed required step, but they are retained in the raw trajectory and can be analyzed separately.
+The downstream pass threshold is 0.5. Endpoint success is exact final-state equality.
 
-## Closed-loop protocol
-Each model sees one interface only. It emits one tool call at a time, receives the deterministic tool result, and continues until `finish(YES|NO)` or six model turns. Temperature is 0.0 and max output is 160 tokens. Invalid calls receive one deterministic error message and consume a turn.
+## Parser/transport correction
 
-## Analysis
-For each model report the full 2×2 matrix:
-- E(I_fine,P_fine)
-- E(I_fine,P_macro)
-- E(I_macro,P_fine)
-- E(I_macro,P_macro)
+The first infrastructure run was invalid because a flat-brace regex truncated nested JSON calls such as
+`{"tool":"ADD","args":{"key":"amber","delta":3}}`, so valid actions were mislabeled and not applied to the environment.
 
-Also report:
-- behavioral contrasts at fixed P,
-- measurement contrasts within each I,
-- difference-in-differences interaction,
-- end-to-end decision accuracy,
-- interface-induced decision flip rate,
-- pairwise model ordering in all four cells,
-- paired task-bootstrap 95% confidence intervals for contrasts.
+Only transport implementation was repaired:
+- nested JSON uses `json.JSONDecoder().raw_decode`;
+- a parser self-test was added;
+- request retries were increased;
+- concurrency was reduced to avoid anonymous-endpoint HTTP 429s;
+- transport failures are not silently scored as agent failures.
 
-No claim of ranking reversal or statistical significance will be made unless it appears under this frozen protocol.
+Tasks, seed, model IDs, schemas, call budgets, targets, scoring partitions, and threshold were unchanged.
+
+## Valid run
+
+Clean workflow run: https://github.com/sushxnthd/flowseal-agent/actions/runs/41167125568
+
+Head SHA: `a469ebc12e51e26fb21bc371adb591d2ecc21873`
+
+Artifact digest: `sha256:fb292dad02a2b5b8c24045b2535ea3e45e16d6b34924790c04a1ba533046ed26`
+
+All 32 declared episodes completed with no transport errors or invalid canonical events. Independent re-analysis recomputes every stored score from the raw canonical traces. For pooled confidence intervals the two model observations are treated as one task cluster, because both models share the same eight tasks; this changes only the resampling unit, not any point estimate or qualitative conclusion.
