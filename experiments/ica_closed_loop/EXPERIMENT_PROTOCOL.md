@@ -61,7 +61,7 @@ Only transport implementation was repaired:
 - a parser self-test was added;
 - request retries were increased;
 - concurrency was reduced to avoid anonymous-endpoint HTTP 429s;
-- transport failures are not silently scored as agent failures.
+- the clean result is accepted only if independent validation finds zero transport errors and zero `INVALID` canonical events.
 
 Tasks, seed, model IDs, schemas, call budgets, targets, scoring partitions, and threshold were unchanged.
 
