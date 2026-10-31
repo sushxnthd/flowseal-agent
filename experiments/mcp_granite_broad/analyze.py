@@ -7,7 +7,7 @@ MODELS = ["granite4:3b", "llama3.2:3b", "qwen2.5:3b"]
 DOMAINS = ["smarthome","industrial","fleet","agriculture","energy","warehouse","surveillance","healthcare","robotics"]
 GRANS = ["primitive","composite_4","composite_2","composite_1"]
 GLABEL = {"primitive":"L4","composite_4":"L3","composite_2":"L2","composite_1":"L1"}
-REPS = [0,1,2]
+REPS = [0]
 SCENARIOS = [f"{d}-{i:03d}" for d in DOMAINS for i in range(1,10)]
 SEED = 267
 B = 10000
@@ -146,7 +146,7 @@ def summarize(rows):
     timeouts=sum(1 for r in uniq if bool(r.get("trace_summary",{}).get("timed_out",False)))
 
     out={
-        "protocol":{"models":MODELS,"domains":DOMAINS,"granularities":GRANS,"repetitions":3,"expected_conditions":2916,"bootstrap_resamples":B,"seed":SEED},
+        "protocol":{"models":MODELS,"domains":DOMAINS,"granularities":GRANS,"repetitions":1,"expected_conditions":972,"bootstrap_resamples":B,"seed":SEED},
         "completeness":{"jsonl_records_raw":len(rows),"unique_condition_records":len(uniq),"errors":errors,"timeouts":timeouts,"duplicate_keys":duplicates,"missing_count":len(missing),"missing_keys":[list(x) for x in missing[:100]],"unexpected_count":len(unexpected),"unexpected_keys":[list(x) for x in unexpected[:100]]},
         "means":{},
         "contrasts_vs_L4":{},
@@ -210,7 +210,7 @@ def markdown(s):
     lines=[]
     c=s["completeness"]
     lines += ["# Broad MCP-GRANITE closed-loop replication", "",
-              f"- Unique conditions: {c['unique_condition_records']} / 2916",
+              f"- Unique conditions: {c['unique_condition_records']} / 972",
               f"- Errors: {c['errors']}; timeouts: {c['timeouts']}; missing: {c['missing_count']}; duplicate keys: {len(c['duplicate_keys'])}", "",
               "## Strict execution success", "",
               "| Model | L4 primitive | L3 4-tool | L2 2-tool | L1 1-tool |",

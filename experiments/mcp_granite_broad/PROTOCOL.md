@@ -38,12 +38,12 @@ Full factorial:
 - 3 models
 - 81 scenarios
 - 4 interface granularities
-- 3 repetitions
+- 1 repetition
 - fault rate = 0
 - max agent turns = 20
 - per-condition timeout = 120 s
 
-Total declared conditions: **2,916**.
+Total declared conditions: **972**.
 
 Execution is sharded only for transport/runtime. Sharding does not change the scientific design.
 
@@ -76,7 +76,7 @@ This is intentionally stricter than MCP-GRANITE's text-level task-completion fie
 
 ## Primary estimands
 
-For each interface, first average the three repetitions within each model x scenario cell.
+For each interface, use the single frozen run within each model x scenario cell.
 
 Primary interface contrasts compare each coarser interface with L4 primitive:
 
@@ -86,13 +86,13 @@ Primary interface contrasts compare each coarser interface with L4 primitive:
 
 for strict success and upstream task completion.
 
-The pooled estimand gives equal weight to each model and scenario. Uncertainty uses a domain-stratified scenario bootstrap: within each of the nine domains, resample its nine scenarios with replacement, retain all models and repetitions for each sampled scenario, and recompute the contrast. 10,000 resamples, seed 267. Report percentile 95% intervals.
+The pooled estimand gives equal weight to each model and scenario. Uncertainty uses a domain-stratified scenario bootstrap: within each of the nine domains, resample its nine scenarios with replacement, retain all models for each sampled scenario, and recompute the contrast. 10,000 resamples, seed 267. Report percentile 95% intervals.
 
 Per-model contrasts use the same stratified scenario bootstrap and are secondary.
 
 ## Model-order stability
 
-For each interface and each of the three model pairs, compute the scenario-averaged strict-success margin (first model minus second), after averaging repetitions. Use the same domain-stratified scenario bootstrap.
+For each interface and each of the three model pairs, compute the scenario-averaged strict-success margin (first model minus second), . Use the same domain-stratified scenario bootstrap.
 
 A real-interface ranking reversal is called **established** only if the two compared interfaces give opposite point signs and both corresponding 99% bootstrap intervals exclude zero. Otherwise any sign flip is reported only as a point-order change.
 
@@ -100,11 +100,11 @@ No model pair or interface pair will be selected after seeing outcomes.
 
 ## Domain heterogeneity
 
-Report strict-success means by domain x interface, pooled equally over the three models and three repetitions. Domain results are descriptive; no domain is promoted as a primary endpoint.
+Report strict-success means by domain x interface, pooled equally over the three models. Domain results are descriptive; no domain is promoted as a primary endpoint.
 
 ## Completeness and exclusions
 
-Expected record count is 2,916. The analysis must enumerate:
+Expected record count is 972. The analysis must enumerate:
 - completed records,
 - errors,
 - timeouts,
@@ -118,3 +118,10 @@ No post-outcome task filtering, model filtering, or "clean-run" subset is permit
 This study tests the behavioral axis I: the model sees different tool decompositions and is rerun. It does not claim that executions across interfaces are identical. Fixed-execution scoring-boundary sensitivity P remains tested by the separate GRIT audits in the paper.
 
 The upstream benchmark's own `task_completion` checks expected strings in the final answer rather than simulator-state equivalence. For that reason the predeclared primary endpoint is the stricter trace-based conjunction above, while upstream task completion is reported separately.
+
+
+## Pre-outcome execution amendment
+
+The initially frozen matrix specified three repetitions. Before any shard completed and before any condition outcome was inspected, runtime measurements showed that repeated CPU inference would spend most of the remaining camera-ready window on stochastic replication rather than independent task coverage. The inferential unit for the paper is the scenario, and the design already contains 81 independent scenarios balanced across nine domains.
+
+Therefore repetitions are reduced from 3 to 1 while retaining every scenario, model, interface, domain, endpoint, bootstrap rule, and no-filtering rule. The amended matrix has 972 declared conditions (3 models x 81 scenarios x 4 interfaces). This amendment is logistical and pre-outcome; it does not select conditions or estimands based on results.

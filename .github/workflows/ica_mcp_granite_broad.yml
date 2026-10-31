@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: ica-mcp-granite-broad-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   shard:
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
-      max-parallel: 12
+      max-parallel: 20
       matrix:
         model:
           - {tag: "granite4:3b", slug: "granite4-3b"}
@@ -87,7 +87,7 @@ jobs:
           ollama list | tee shard_meta/ollama_list.txt
           ollama show "$MODEL" --modelfile > shard_meta/model_modelfile.txt || true
 
-      - name: Run all nine scenarios in domain across four granularities and three repetitions
+      - name: Run all nine scenarios in domain across four granularities and one repetition
         env:
           MODEL: ${{ matrix.model.tag }}
           DOMAIN: ${{ matrix.domain }}
@@ -100,7 +100,7 @@ jobs:
           domains: ["$DOMAIN"]
           granularities: [primitive, composite_4, composite_2, composite_1]
           fault_rates: [0.0]
-          repetitions: 3
+          repetitions: 1
           max_difficulty: hard
           max_agent_turns: 20
           agent_timeout_seconds: 120.0
@@ -121,9 +121,9 @@ jobs:
           p=pathlib.Path("shard/results.jsonl")
           rows=[json.loads(x) for x in p.read_text().splitlines() if x.strip()]
           print("records",len(rows))
-          assert len(rows)==108, len(rows)
+          assert len(rows)==36, len(rows)
           ks={(r["condition"]["model"],r["condition"]["domain"],r["condition"]["granularity"],r["condition"]["scenario_id"],r["condition"]["repetition"]) for r in rows}
-          assert len(ks)==108, len(ks)
+          assert len(ks)==36, len(ks)
           print("errors",sum(r.get("error") not in (None,"") for r in rows))
           print("timeouts",sum(bool(r.get("trace_summary",{}).get("timed_out",False)) for r in rows))
           PY
@@ -138,7 +138,7 @@ jobs:
           retention-days: 30
 
   aggregate:
-    name: Aggregate all 2,916 declared conditions
+    name: Aggregate all 972 declared conditions
     if: always()
     needs: shard
     runs-on: ubuntu-24.04
