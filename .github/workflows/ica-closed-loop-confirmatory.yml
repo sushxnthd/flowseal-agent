@@ -1,0 +1,32 @@
+name: ICA confirmatory 32-task closed-loop audit
+
+on:
+  push:
+    branches: ["research/ica-closed-loop-confirmatory"]
+    paths:
+      - "experiments/ica_closed_loop/experiment.py"
+      - "experiments/ica_closed_loop/CONFIRMATORY_PROTOCOL.md"
+      - ".github/workflows/ica-closed-loop-confirmatory.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen experiment
+        run: python -m py_compile experiments/ica_closed_loop/experiment.py
+      - name: Run 32-task confirmatory extension
+        run: python experiments/ica_closed_loop/experiment.py --out results_confirmatory --tasks 32 --concurrency 4
+      - name: Print summary
+        if: always()
+        run: test -f results_confirmatory/summary.json && cat results_confirmatory/summary.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ica-closed-loop-confirmatory-results
+          path: results_confirmatory/
+          if-no-files-found: warn
