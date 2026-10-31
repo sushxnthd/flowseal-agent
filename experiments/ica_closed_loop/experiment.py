@@ -333,15 +333,19 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument('--models',nargs='*',default=MODELS)
     ap.add_argument('--tasks',type=int,default=8)
+    ap.add_argument('--task-offset',type=int,default=0)
     ap.add_argument('--cohort',choices=['pilot','confirmatory'],default='pilot')
     ap.add_argument('--repeats',type=int,default=1)
     ap.add_argument('--concurrency',type=int,default=2)
     ap.add_argument('--out',default='results')
     a=ap.parse_args()
-    tasks=build_tasks(a.tasks,a.cohort)
+    if a.task_offset < 0:
+        raise ValueError('task offset must be nonnegative')
+    all_tasks=build_tasks(a.task_offset+a.tasks,a.cohort)
+    tasks=all_tasks[a.task_offset:a.task_offset+a.tasks]
     out=Path(a.out); out.mkdir(parents=True,exist_ok=True)
     manifest={'pilot_seed':PILOT_SEED,'confirm_seed':CONFIRM_SEED,'cohort':a.cohort,
-              'models':a.models,'repeats':a.repeats,'tasks':tasks,
+              'models':a.models,'repeats':a.repeats,'task_offset':a.task_offset,'tasks':tasks,
               'interfaces':{'fine':schema_text('fine'),'macro':schema_text('macro')},
               'scoring':{'P_fine':'mean exact positional primitive correctness over 4 canonical primitive events',
                          'P_macro':'mean all-correct score over fixed target pairs [1,2] and [3,4]',
