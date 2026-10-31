@@ -19,7 +19,7 @@ jobs:
       - name: Validate frozen experiment
         run: python -m py_compile experiments/ica_closed_loop/experiment.py
       - name: Run closed-loop audit
-        run: python experiments/ica_closed_loop/experiment.py --out results --tasks 8 --concurrency 2
+        run: python experiments/ica_closed_loop/experiment.py --out results --tasks 8 --concurrency 8
       - name: Print summary
         if: always()
         run: test -f results/summary.json && cat results/summary.json || true
