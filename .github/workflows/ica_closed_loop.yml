@@ -1,0 +1,60 @@
+name: ICA closed-loop I x P experiment
+
+on:
+  push:
+    branches: [research/ica-closed-loop]
+    paths:
+      - experiments/ica_closed_loop.py
+      - experiments/analyze_closed_loop.py
+      - .github/workflows/ica_closed_loop.yml
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install llama.cpp CPU binary
+        run: |
+          set -eux
+          curl -L --retry 4 -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b11960/llama-b11960-bin-ubuntu-x64.tar.gz
+          mkdir -p llama
+          tar -xzf llama.tar.gz -C llama
+          LLAMA_SERVER=$(find llama -type f -name llama-server | head -1)
+          echo "LLAMA_SERVER=$LLAMA_SERVER" >> $GITHUB_ENV
+      - name: Download frozen models
+        run: |
+          set -eux
+          mkdir -p models results
+          curl -L --fail --retry 4 -o models/qwen.gguf "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf?download=true"
+          curl -L --fail --retry 4 -o models/llama.gguf "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf?download=true"
+          sha256sum models/*.gguf | tee results/model_sha256.txt
+      - name: Run Qwen
+        run: |
+          "$LLAMA_SERVER" -m models/qwen.gguf --host 127.0.0.1 --port 8080 -c 4096 -t 4 > results/qwen_server.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 120); do curl -fsS http://127.0.0.1:8080/health && break || sleep 2; done
+          python experiments/ica_closed_loop.py --model-name Qwen2.5-Coder-3B-Instruct --out results/qwen.json
+          kill $PID || true
+          wait $PID || true
+          trap - EXIT
+      - name: Run Llama
+        run: |
+          "$LLAMA_SERVER" -m models/llama.gguf --host 127.0.0.1 --port 8080 -c 4096 -t 4 > results/llama_server.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 120); do curl -fsS http://127.0.0.1:8080/health && break || sleep 2; done
+          python experiments/ica_closed_loop.py --model-name Llama-3.2-3B-Instruct --out results/llama.json
+          kill $PID || true
+          wait $PID || true
+          trap - EXIT
+      - name: Analyze
+        run: |
+          python experiments/analyze_closed_loop.py | tee results/summary_stdout.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ica-closed-loop-results
+          path: results/
+          if-no-files-found: error
