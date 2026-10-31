@@ -1,6 +1,12 @@
 # IEEE ICA closed-loop I×P pilot — verified clean run
 
-## Frozen run
+## Frozen run and durable repository record
+
+The scientific protocol was fixed before the clean run. The authoritative protocol file records the pre-outcome source anchors; the clean run itself executed at commit `a469ebc12e51e26fb21bc371adb591d2ecc21873`.
+
+This directory now persists the run manifest, summary, and compressed raw trajectories in Git rather than relying on expiring GitHub Actions retention. Decode the raw trajectories with `base64 -d trajectories.jsonl.gz.b64 | gzip -d > trajectories.jsonl`.
+
+Raw trajectory SHA-256: `e2bb4dbc39635758940af89de9720586e36ec1db55aa18d63b72be4739aaf719`.
 
 - Workflow run: https://github.com/sushxnthd/flowseal-agent/actions/runs/41167125568
 - Run head SHA: `a469ebc12e51e26fb21bc371adb591d2ecc21873`
@@ -50,3 +56,12 @@ The final cell has a point-estimate ordering reversal, but its interval crosses 
 ## Integrity note
 
 The original infrastructure run was invalid because a nested-JSON parser bug mislabeled valid calls and failed to apply them to the environment. Scientific choices were not tuned in response. Only the parser/retry/concurrency transport layer was repaired before the clean rerun. See `experiments/ica_closed_loop/EXPERIMENT_PROTOCOL.md` for the pre-outcome commit anchors and full provenance.
+
+
+## Files persisted in Git
+
+- `manifest.json`: frozen task/interface/scoring manifest used by the clean run.
+- `summary.json`: stored run summary.
+- `trajectories.jsonl.gz.b64`: gzip-compressed, base64-encoded raw trajectories including model responses, parsed calls, canonical events, states, and endpoint outcomes.
+
+The Actions page is retained only as execution provenance; the repository commit containing these files is the durable citation target.
