@@ -11,7 +11,8 @@ MODELS=[
     'koboldcpp/llama-3.2-3b-instruct-q4_k_m',
 ]
 REGS=['amber','cobalt','jade','violet']
-SEED=267
+SEED=310267
+N_TASKS=32
 
 MACROS={
  'ADD_COPY': lambda a:[('ADD',a['src'],int(a['delta'])),('COPY',a['src'],a['dst'])],
@@ -50,9 +51,13 @@ def instantiate(idx,pair,rng):
     instruction=f"First {clauses[0]}. Then {clauses[1]}. Do exactly those operations in order and do not alter any other register."
     return {'task_id':idx+1,'initial':state,'specs':specs,'target':target,'goal':s,'instruction':instruction}
 
-def build_tasks():
+def build_tasks(n=N_TASKS):
     rng=random.Random(SEED)
-    return [instantiate(i,p,rng) for i,p in enumerate(TEMPLATES)]
+    tasks=[]
+    for i in range(n):
+        pair=TEMPLATES[i % len(TEMPLATES)]
+        tasks.append(instantiate(i,pair,rng))
+    return tasks
 
 def apply_primitive(state,ev):
     op=ev[0]
@@ -174,16 +179,44 @@ def run_episode(model,task,interface):
       'final_state':state,'raw_calls':raw,'api_meta':api_meta
     }
 
-def bootstrap_diff(rows,a,b,field,B=5000,seed=267):
+def bootstrap_diff(rows,a,b,field,B=10000,seed=310267):
+    # Resample TASKS, keeping both models and both interfaces together.
     rng=random.Random(seed); by={}
-    for r in rows: by.setdefault((r['model'],r['task_id']),{})[r['interface']]=r
-    pairs=[v for v in by.values() if a in v and b in v]
-    vals=[v[b][field]-v[a][field] for v in pairs]
+    for r in rows:
+        by.setdefault(r['task_id'],{}).setdefault(r['model'],{})[r['interface']]=r
+    vals=[]
+    for tid in sorted(by):
+        ds=[]
+        for model in MODELS:
+            v=by[tid].get(model,{})
+            if a in v and b in v:
+                ds.append(v[b][field]-v[a][field])
+        if ds:
+            vals.append(sum(ds)/len(ds))
     if not vals: return None
     mean=sum(vals)/len(vals); boots=[]
     for _ in range(B):
         s=[rng.choice(vals) for _ in vals]; boots.append(sum(s)/len(s))
-    boots.sort(); return {'n':len(vals),'mean':mean,'ci95':[boots[int(.025*B)],boots[min(B-1,int(.975*B))]]}
+    boots.sort()
+    return {'n_tasks':len(vals),'mean':mean,'ci95':[boots[int(.025*B)],boots[min(B-1,int(.975*B))]]}
+
+def bootstrap_model_margin(rows,interface,field,B=10000,seed=310268):
+    # Qwen minus Llama, paired by task and resampled at the task level.
+    rng=random.Random(seed); by={}
+    for r in rows:
+        if r['interface']==interface:
+            by.setdefault(r['task_id'],{})[r['model']]=r
+    vals=[]
+    for tid in sorted(by):
+        v=by[tid]
+        if MODELS[0] in v and MODELS[1] in v:
+            vals.append(v[MODELS[0]][field]-v[MODELS[1]][field])
+    if not vals: return None
+    mean=sum(vals)/len(vals); boots=[]
+    for _ in range(B):
+        s=[rng.choice(vals) for _ in vals]; boots.append(sum(s)/len(s))
+    boots.sort()
+    return {'n_tasks':len(vals),'mean':mean,'ci95':[boots[int(.025*B)],boots[min(B-1,int(.975*B))]]}
 
 def summ_group(rows):
     o={}
@@ -223,12 +256,20 @@ def summarize(rows):
        'measurement_with_Imacro':matrix['macro']['P_macro']-matrix['macro']['P_fine'],
        'interaction':(matrix['macro']['P_macro']-matrix['macro']['P_fine'])-(matrix['fine']['P_macro']-matrix['fine']['P_fine'])
       }
+    out['model_margins_qwen_minus_llama']={
+      'Ifine_Pfine':bootstrap_model_margin(rows,'fine','P_fine'),
+      'Ifine_Pmacro':bootstrap_model_margin(rows,'fine','P_macro'),
+      'Imacro_Pfine':bootstrap_model_margin(rows,'macro','P_fine'),
+      'Imacro_Pmacro':bootstrap_model_margin(rows,'macro','P_macro'),
+      'Ifine_endpoint':bootstrap_model_margin(rows,'fine','endpoint_success'),
+      'Imacro_endpoint':bootstrap_model_margin(rows,'macro','endpoint_success')
+    }
     return out
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument('--models',nargs='*',default=MODELS); ap.add_argument('--tasks',type=int,default=8); ap.add_argument('--concurrency',type=int,default=2); ap.add_argument('--out',default='results')
+    ap=argparse.ArgumentParser(); ap.add_argument('--models',nargs='*',default=MODELS); ap.add_argument('--tasks',type=int,default=N_TASKS); ap.add_argument('--concurrency',type=int,default=2); ap.add_argument('--out',default='results')
     a=ap.parse_args(); tasks=build_tasks()[:a.tasks]; out=Path(a.out); out.mkdir(parents=True,exist_ok=True)
-    manifest={'seed':SEED,'models':a.models,'tasks':tasks,'interfaces':{'fine':schema_text('fine'),'macro':schema_text('macro')},'scoring':{'P_fine':'mean exact positional primitive correctness over 4 canonical primitive events','P_macro':'mean all-correct score over fixed target pairs [1,2] and [3,4]','decision_threshold':0.5,'decision_threshold_rationale':'predeclared before inspecting outcomes; matches the documented DeepEval default threshold used elsewhere in the paper'},'endpoint':'all four register values equal target final state','frozen_before_inference':True}
+    manifest={'study':'32-new-task confirmatory extension after the exploratory 8-task pilot','seed':SEED,'n_task_clusters':len(tasks),'models':a.models,'tasks':tasks,'interfaces':{'fine':schema_text('fine'),'macro':schema_text('macro')},'scoring':{'P_fine':'mean exact positional primitive correctness over 4 canonical primitive events','P_macro':'mean all-correct score over fixed target pairs [1,2] and [3,4]','decision_threshold':0.5,'decision_threshold_rationale':'predeclared before inspecting outcomes; matches the documented DeepEval default threshold used elsewhere in the paper'},'endpoint':'all four register values equal target final state','frozen_before_inference':True,'primary_inference':'paired bootstrap resampling whole tasks, retaining both models and both interfaces','no_posthoc_task_selection':True}
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
     jobs=[(m,t,I) for m in a.models for t in tasks for I in ('fine','macro')]; rows=[]
     def one(job):
