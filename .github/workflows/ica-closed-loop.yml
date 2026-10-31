@@ -2,7 +2,7 @@ name: ICA closed-loop I x P audit
 
 on:
   push:
-    branches: ["research/ica-closed-loop"]
+    branches: ["research/ica-closed-loop-v2"]
     paths:
       - "experiments/ica_closed_loop/**"
       - ".github/workflows/ica-closed-loop.yml"
@@ -19,13 +19,13 @@ jobs:
       - name: Validate frozen experiment
         run: python -m py_compile experiments/ica_closed_loop/experiment.py
       - name: Run closed-loop audit
-        run: python experiments/ica_closed_loop/experiment.py --out results --tasks 8 --concurrency 4
+        run: python experiments/ica_closed_loop/experiment.py --out results_v2 --cohort confirmatory --tasks 32 --repeats 1 --concurrency 6
       - name: Print summary
         if: always()
-        run: test -f results/summary.json && cat results/summary.json || true
+        run: test -f results_v2/summary.json && cat results_v2/summary.json || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ica-closed-loop-results
-          path: results/
+          name: ica-closed-loop-confirmatory-v2
+          path: results_v2/
           if-no-files-found: warn
