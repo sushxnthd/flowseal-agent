@@ -31,13 +31,13 @@ Every realized trajectory is canonicalized to four primitive positions and resco
 - `P_fine`: primitive-position accuracy.
 - `P_macro`: mean of two predeclared all-correct blocks [1,2] and [3,4].
 
-## Confirmatory execution
+## Confirmatory extension status
 
-The official confirmatory dataset is the four-shard run specified by `.github/workflows/ica-closed-loop-sharded.yml`.
+A 32-new-task confirmatory extension was frozen before inference and then re-executed through the transport-only four-shard workflow in `.github/workflows/ica-closed-loop-sharded.yml`. The public-model transport did not complete all predeclared cells before the workflow limits, so the confirmatory dataset is incomplete.
 
-The 32 frozen tasks are partitioned by index into four disjoint blocks of eight. Sharding changes scheduling only. No task, model, interface, score, threshold, or comparison is selected from outcomes.
+**The camera-ready paper does not analyze or report partial outcomes from that extension.** Its closed-loop claims use only the completed, predeclared eight-task / 32-episode pilot. The confirmatory protocol, execution amendment, and incomplete workflow history are retained for transparency.
 
-The aggregate job concatenates every shard's `trajectories.jsonl` and checks that all 32 tasks × 2 models × 2 interfaces are present before analysis.
+The 32 frozen tasks were partitioned deterministically into four disjoint blocks of eight. Sharding changed scheduling only; no task, model, interface, score, threshold, or comparison was selected from outcomes.
 
 ## Inference
 
@@ -58,4 +58,4 @@ python -m py_compile experiments/ica_closed_loop/experiment.py
 python -m py_compile experiments/ica_closed_loop/experiment_shard.py
 ```
 
-The controlled GRIT audits, archived LLM-plan audits, DeepEval/AgentEvals adapters, and AgentProcessBench reanalysis are reported separately in the main research artifact used for the accepted paper; the camera-ready adds the closed-loop extension and proof note without changing those archived results.
+The controlled GRIT audits, archived LLM-plan audits, DeepEval/AgentEvals adapters, and AgentProcessBench reanalysis are reported separately in the main research artifact used for the accepted paper. The camera-ready uses the completed closed-loop pilot, adds the proof note, and retains the incomplete larger extension only as a transparent frozen follow-up.
