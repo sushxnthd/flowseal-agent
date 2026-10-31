@@ -1,0 +1,28 @@
+{
+  "n_episodes": 32,
+  "models": {
+    "koboldcpp/Qwen2.5-Coder-3B-Instruct": {
+      "fine": {"endpoint_success":1.0,"exact_plan":1.0,"P_fine":1.0,"P_macro":1.0,"pass_Pfine":1.0,"pass_Pmacro":1.0,"n":8},
+      "macro": {"endpoint_success":0.125,"exact_plan":0.125,"P_fine":0.375,"P_macro":0.1875,"pass_Pfine":0.375,"pass_Pmacro":0.25,"n":8}
+    },
+    "koboldcpp/llama-3.2-3b-instruct-q4_k_m": {
+      "fine": {"endpoint_success":0.125,"exact_plan":0.0,"P_fine":0.40625,"P_macro":0.1875,"pass_Pfine":0.5,"pass_Pmacro":0.375,"n":8},
+      "macro": {"endpoint_success":0.0,"exact_plan":0.0,"P_fine":0.28125,"P_macro":0.25,"pass_Pfine":0.5,"pass_Pmacro":0.5,"n":8}
+    }
+  },
+  "overall": {
+    "fine": {"endpoint_success":0.5625,"exact_plan":0.5,"P_fine":0.703125,"P_macro":0.59375,"pass_Pfine":0.75,"pass_Pmacro":0.6875,"n":16},
+    "macro": {"endpoint_success":0.0625,"exact_plan":0.0625,"P_fine":0.328125,"P_macro":0.21875,"pass_Pfine":0.4375,"pass_Pmacro":0.375,"n":16}
+  },
+  "paired_macro_minus_fine_interface": {
+    "endpoint_success":{"n":16,"mean":-0.5,"ci95":[-0.75,-0.25]},
+    "exact_plan":{"n":16,"mean":-0.4375,"ci95":[-0.6875,-0.1875]},
+    "P_fine":{"n":16,"mean":-0.375,"ci95":[-0.578125,-0.171875]},
+    "P_macro":{"n":16,"mean":-0.375,"ci95":[-0.65625,-0.09375]},
+    "pass_Pfine":{"n":16,"mean":-0.3125,"ci95":[-0.625,0.0]},
+    "pass_Pmacro":{"n":16,"mean":-0.3125,"ci95":[-0.6875,0.0625]}
+  },
+  "decision_flips":{"behavior_at_Pfine":9,"behavior_at_Pmacro":11,"measurement_with_Ifine":1,"measurement_with_Imacro":1,"n_paired_interface":16},
+  "IxP_matrix":{"fine":{"P_fine":0.703125,"P_macro":0.59375},"macro":{"P_fine":0.328125,"P_macro":0.21875}},
+  "decomposition":{"behavior_at_Pfine":-0.375,"behavior_at_Pmacro":-0.375,"measurement_with_Ifine":-0.109375,"measurement_with_Imacro":-0.109375,"interaction":0.0}
+}
