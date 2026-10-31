@@ -1,0 +1,20 @@
+name: Cancel obsolete ICA pilot runs
+on:
+  push:
+    branches: ["research/ica-closed-loop"]
+    paths: [".github/workflows/cancel-old-ica-runs.yml"]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel obsolete pre-fix runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for id in 41165669258 41165645174; do
+            curl -fsS -X POST               -H "Authorization: Bearer $GH_TOKEN"               -H "Accept: application/vnd.github+json"               "https://api.github.com/repos/$REPO/actions/runs/$id/cancel" || true
+          done
