@@ -15,7 +15,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          for id in 41165669258 41165645174; do
+          for id in 41165669258 41165645174 41165925340; do
             curl -fsS -X POST               -H "Authorization: Bearer $GH_TOKEN"               -H "Accept: application/vnd.github+json"               "https://api.github.com/repos/$REPO/actions/runs/$id/cancel" || true
           done
 \n# trigger cancellation after workflow exists\n
