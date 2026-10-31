@@ -1,0 +1,42 @@
+name: ICA closed-loop confirmatory shards
+
+on:
+  push:
+    branches: ["research/ica-closed-loop-v2"]
+    paths:
+      - "experiments/ica_closed_loop/**"
+      - ".github/workflows/ica-closed-loop-sharded.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [0,1,2,3,4,5,6,7]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen experiment
+        run: python -m py_compile experiments/ica_closed_loop/experiment.py
+      - name: Run frozen confirmatory shard
+        shell: bash
+        run: |
+          OFFSET=$(( ${{ matrix.shard }} * 4 ))
+          python experiments/ica_closed_loop/experiment.py \
+            --out "results_shard_${{ matrix.shard }}" \
+            --cohort confirmatory \
+            --task-offset "$OFFSET" \
+            --tasks 4 \
+            --repeats 1 \
+            --concurrency 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "ica-confirmatory-shard-${{ matrix.shard }}"
+          path: "results_shard_${{ matrix.shard }}/"
+          if-no-files-found: warn
