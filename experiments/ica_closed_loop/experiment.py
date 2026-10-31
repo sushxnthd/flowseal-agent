@@ -155,11 +155,12 @@ def run_episode(model,task,interface):
     assert len(canonical)==4,(interface,canonical)
     target=task['target']; y=[int(canonical[i]==target[i]) for i in range(4)]
     p_fine=sum(y)/4; p_macro=((y[0]*y[1])+(y[2]*y[3]))/2
+    threshold=0.5
     return {
       'model':model,'task_id':task['task_id'],'interface':interface,
       'initial':task['initial'],'goal':task['goal'],'instruction':task['instruction'],
       'target':[list(x) for x in target],'canonical':[list(x) for x in canonical],
-      'y':y,'P_fine':p_fine,'P_macro':p_macro,'endpoint_success':int(state==task['goal']),'exact_plan':int(all(y)),
+      'y':y,'P_fine':p_fine,'P_macro':p_macro,'pass_Pfine':int(p_fine>=threshold),'pass_Pmacro':int(p_macro>=threshold),'endpoint_success':int(state==task['goal']),'exact_plan':int(all(y)),
       'final_state':state,'raw_calls':raw,'api_meta':api_meta
     }
 
@@ -179,7 +180,7 @@ def summ_group(rows):
     for I in ('fine','macro'):
       rr=[r for r in rows if r['interface']==I]
       if rr:
-        o[I]={k:sum(float(x[k]) for x in rr)/len(rr) for k in ('endpoint_success','exact_plan','P_fine','P_macro')}
+        o[I]={k:sum(float(x[k]) for x in rr)/len(rr) for k in ('endpoint_success','exact_plan','P_fine','P_macro','pass_Pfine','pass_Pmacro')}
         o[I]['n']=len(rr)
     return o
 
@@ -188,7 +189,17 @@ def summarize(rows):
     for model in sorted(set(r['model'] for r in rows)):
         mr=[r for r in rows if r['model']==model]; out['models'][model]=summ_group(mr)
     out['overall']=summ_group(rows)
-    out['paired_macro_minus_fine_interface']={f:bootstrap_diff(rows,'fine','macro',f) for f in ['endpoint_success','exact_plan','P_fine','P_macro']}
+    out['paired_macro_minus_fine_interface']={f:bootstrap_diff(rows,'fine','macro',f) for f in ['endpoint_success','exact_plan','P_fine','P_macro','pass_Pfine','pass_Pmacro']}
+    by={}
+    for r in rows: by.setdefault((r['model'],r['task_id']),{})[r['interface']]=r
+    pairs=[v for v in by.values() if 'fine' in v and 'macro' in v]
+    out['decision_flips']={
+      'behavior_at_Pfine':sum(v['fine']['pass_Pfine']!=v['macro']['pass_Pfine'] for v in pairs),
+      'behavior_at_Pmacro':sum(v['fine']['pass_Pmacro']!=v['macro']['pass_Pmacro'] for v in pairs),
+      'measurement_with_Ifine':sum(r['interface']=='fine' and r['pass_Pfine']!=r['pass_Pmacro'] for r in rows),
+      'measurement_with_Imacro':sum(r['interface']=='macro' and r['pass_Pfine']!=r['pass_Pmacro'] for r in rows),
+      'n_paired_interface':len(pairs)
+    }
     matrix={}
     for I in ('fine','macro'):
       rr=[r for r in rows if r['interface']==I]
@@ -207,7 +218,7 @@ def summarize(rows):
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--models',nargs='*',default=MODELS); ap.add_argument('--tasks',type=int,default=8); ap.add_argument('--concurrency',type=int,default=2); ap.add_argument('--out',default='results')
     a=ap.parse_args(); tasks=build_tasks()[:a.tasks]; out=Path(a.out); out.mkdir(parents=True,exist_ok=True)
-    manifest={'seed':SEED,'models':a.models,'tasks':tasks,'interfaces':{'fine':schema_text('fine'),'macro':schema_text('macro')},'scoring':{'P_fine':'mean exact positional primitive correctness over 4 canonical primitive events','P_macro':'mean all-correct score over fixed target pairs [1,2] and [3,4]'},'endpoint':'all four register values equal target final state','frozen_before_inference':True}
+    manifest={'seed':SEED,'models':a.models,'tasks':tasks,'interfaces':{'fine':schema_text('fine'),'macro':schema_text('macro')},'scoring':{'P_fine':'mean exact positional primitive correctness over 4 canonical primitive events','P_macro':'mean all-correct score over fixed target pairs [1,2] and [3,4]','decision_threshold':0.5,'decision_threshold_rationale':'predeclared before inspecting outcomes; matches the documented DeepEval default threshold used elsewhere in the paper'},'endpoint':'all four register values equal target final state','frozen_before_inference':True}
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
     jobs=[(m,t,I) for m in a.models for t in tasks for I in ('fine','macro')]; rows=[]
     def one(job):
