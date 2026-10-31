@@ -9,6 +9,10 @@ on:
       - .github/workflows/ica_closed_loop.yml
   workflow_dispatch:
 
+concurrency:
+  group: ica-closed-loop-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest
