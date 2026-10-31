@@ -94,7 +94,7 @@ def parse_call(text):
     tool=m.group(1).upper(); rest=m.group(2); args={}
     for k,v in re.findall(r'(\\w+)\\s*=\\s*([^,\\s}]+)',rest):
         try: v=int(v)
-        except: v=v.strip('"\\'')
+        except: v=v.strip("\\\"'")
         args[k]=v
     return tool,args
 
