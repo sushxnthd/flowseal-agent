@@ -1,0 +1,36 @@
+name: ICA confirmatory 32-task closed-loop audit 16-worker execution
+
+on:
+  push:
+    branches: ["research/ica-closed-loop-confirmatory-fast16"]
+    paths:
+      - ".github/workflows/ica-closed-loop-confirmatory-fast16.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen experiment
+        run: python -m py_compile experiments/ica_closed_loop/experiment.py
+      - name: Run identical frozen protocol with sixteen workers
+        run: python experiments/ica_closed_loop/experiment.py --out results_confirmatory --tasks 32 --concurrency 16
+      - name: Validate episode count
+        if: always()
+        run: |
+          if [ -f results_confirmatory/trajectories.jsonl ]; then
+            test "$(wc -l < results_confirmatory/trajectories.jsonl)" -eq 128
+          fi
+      - name: Print summary
+        if: always()
+        run: test -f results_confirmatory/summary.json && cat results_confirmatory/summary.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ica-closed-loop-confirmatory-fast16-results
+          path: results_confirmatory/
+          if-no-files-found: warn
