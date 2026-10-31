@@ -1,0 +1,61 @@
+name: ICA confirmatory sharded closed-loop audit
+
+on:
+  push:
+    branches: ["research/ica-closed-loop-confirmatory"]
+    paths:
+      - "experiments/ica_closed_loop/experiment_shard.py"
+      - "experiments/ica_closed_loop/analyze_combined.py"
+      - "experiments/ica_closed_loop/SHARDED_EXECUTION_AMENDMENT.md"
+      - ".github/workflows/ica-closed-loop-sharded.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        start: [0, 8, 16, 24]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen runners
+        run: |
+          python -m py_compile experiments/ica_closed_loop/experiment.py
+          python -m py_compile experiments/ica_closed_loop/experiment_shard.py
+      - name: Run eight-task shard
+        working-directory: experiments/ica_closed_loop
+        run: python experiment_shard.py --start ${{ matrix.start }} --count 8 --concurrency 4 --out ../../results_shard_${{ matrix.start }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ica-confirmatory-shard-${{ matrix.start }}
+          path: results_shard_${{ matrix.start }}/
+          if-no-files-found: error
+
+  aggregate:
+    needs: shard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ica-confirmatory-shard-*
+          path: shards
+      - name: Combine all predeclared shards
+        run: |
+          mkdir -p combined
+          find shards -name trajectories.jsonl -print | sort
+          cat $(find shards -name trajectories.jsonl -print | sort) > combined/trajectories.jsonl
+          wc -l combined/trajectories.jsonl
+          python experiments/ica_closed_loop/analyze_combined.py combined/trajectories.jsonl combined/reanalysis.json
+          cp experiments/ica_closed_loop/CONFIRMATORY_PROTOCOL.md combined/
+          cp experiments/ica_closed_loop/SHARDED_EXECUTION_AMENDMENT.md combined/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ica-confirmatory-combined
+          path: combined/
+          if-no-files-found: error
