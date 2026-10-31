@@ -77,20 +77,30 @@ SET_COPY src dst value   = SET src value; COPY src dst
 SWAP_ADD a b delta       = SWAP a b; ADD a delta"""
 
 def parse_call(text):
-    m=re.search(r'\{[^{}]*\}',text,re.S)
-    if m:
+    # Transport/parser fix only: decode nested JSON from the first opening brace.
+    # The previous regex stopped at the inner args brace and mislabeled valid calls INVALID.
+    s=text.strip()
+    start=s.find('{')
+    if start >= 0:
         try:
-            obj=json.loads(m.group(0)); tool=str(obj.get('tool','')).upper(); args=obj.get('args',{})
-            if isinstance(args,dict): return tool,{str(k):v for k,v in args.items()}
-        except Exception: pass
-    m=re.search(r'CALL\s+([A-Za-z_]+)\s*(.*)',text,re.I)
+            obj,_=json.JSONDecoder().raw_decode(s[start:])
+            tool=str(obj.get('tool','')).upper(); args=obj.get('args',{})
+            if tool and isinstance(args,dict):
+                return tool,{str(k):v for k,v in args.items()}
+        except Exception:
+            pass
+    m=re.search(r'CALL\\s+([A-Za-z_]+)\\s*(.*)',text,re.I)
     if not m: return 'INVALID',{}
     tool=m.group(1).upper(); rest=m.group(2); args={}
-    for k,v in re.findall(r'(\w+)\s*=\s*([^,\s}]+)',rest):
+    for k,v in re.findall(r'(\\w+)\\s*=\\s*([^,\\s}]+)',rest):
         try: v=int(v)
-        except: v=v.strip('"\'')
+        except: v=v.strip('"\\'')
         args[k]=v
     return tool,args
+
+def parser_self_test():
+    assert parse_call('{"tool":"ADD","args":{"key":"amber","delta":3}}') == ('ADD',{'key':'amber','delta':3})
+    assert parse_call('CALL COPY src=amber dst=jade') == ('COPY',{'src':'amber','dst':'jade'})
 
 def canonicalize(interface,tool,args):
     try:
@@ -114,7 +124,7 @@ def canonicalize(interface,tool,args):
     except Exception:
         return [('INVALID',)] if interface=='fine' else [('INVALID',),('INVALID',)]
 
-def call_model(model,messages,max_retries=4):
+def call_model(model,messages,max_retries=8):
     body={'model':model,'messages':messages,'temperature':0,'max_tokens':96}
     data=json.dumps(body).encode()
     headers={'Authorization':'Bearer '+ANON,'Content-Type':'application/json','User-Agent':'ica-grit-audit/1.0'}
@@ -126,7 +136,7 @@ def call_model(model,messages,max_retries=4):
                 obj=json.loads(r.read().decode())
             return obj['choices'][0]['message']['content'],obj
         except Exception as e:
-            err=repr(e); time.sleep(5*(attempt+1))
+            err=repr(e); time.sleep(min(60,8*(attempt+1)))
     raise RuntimeError(err)
 
 def run_episode(model,task,interface):
