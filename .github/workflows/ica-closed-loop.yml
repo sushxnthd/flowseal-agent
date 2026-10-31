@@ -2,7 +2,7 @@ name: ICA closed-loop I x P audit
 
 on:
   push:
-    branches: ["research/ica-closed-loop-v2"]
+    branches: ["research/ica-closed-loop-monolithic-disabled"]
     paths:
       - "experiments/ica_closed_loop/**"
       - ".github/workflows/ica-closed-loop.yml"
