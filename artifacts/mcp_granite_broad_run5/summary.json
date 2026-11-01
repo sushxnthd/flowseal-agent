@@ -1,0 +1,27 @@
+{
+  "run_id": 41272234268,
+  "head_sha": "fe7f10029371992b43cf6501771fade883453e9e",
+  "aggregate_artifact_id": 13072145222,
+  "aggregate_artifact_sha256": "8a46a18daad7e0f33041a4513fa649cafc8d23446d8a08732d3184f1c06a1f20",
+  "upstream_mcp_granite_sha": "fbc29280813e9f091e2933b66dc0474c7f6f2cfd",
+  "conditions": {"unique": 972, "expected": 972, "missing": 0, "duplicates": 0, "errors": 143, "timeouts": 143},
+  "strict_success": {
+    "pooled": {"L4": 0.0494, "L3": 0.1770, "L2": 0.1276, "L1": 0.0494},
+    "granite4:3b": {"L4": 0.0494, "L3": 0.2099, "L2": 0.1728, "L1": 0.0494},
+    "llama3.2:3b": {"L4": 0.0370, "L3": 0.1728, "L2": 0.1358, "L1": 0.0988},
+    "qwen2.5:3b": {"L4": 0.0617, "L3": 0.1481, "L2": 0.0741, "L1": 0.0000}
+  },
+  "contrasts_vs_L4": {
+    "strict_success": {
+      "L3-L4": {"estimate": 0.1276, "ci95": [0.0576, 0.1975]},
+      "L2-L4": {"estimate": 0.0782, "ci95": [0.0206, 0.1358]},
+      "L1-L4": {"estimate": 0.0000, "ci95": [-0.0370, 0.0329]}
+    },
+    "task_completion": {
+      "L3-L4": {"estimate": 0.0905, "ci95": [0.0206, 0.1605]},
+      "L2-L4": {"estimate": 0.0082, "ci95": [-0.0658, 0.0864]},
+      "L1-L4": {"estimate": -0.1070, "ci95": [-0.1893, -0.0288]}
+    }
+  },
+  "established_rank_reversals_99pct_rule": 0
+}
