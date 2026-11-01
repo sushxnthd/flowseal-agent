@@ -129,12 +129,17 @@ jobs:
           PY
           cp -a shard_meta shard/meta
 
+      - name: Pack shard for portable artifact upload
+        if: always()
+        run: |
+          tar -czf "mcp-granite-${{ matrix.model.slug }}-${{ matrix.domain }}.tar.gz" shard/
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: mcp-granite-${{ matrix.model.slug }}-${{ matrix.domain }}
-          path: shard/
-          if-no-files-found: warn
+          path: mcp-granite-${{ matrix.model.slug }}-${{ matrix.domain }}.tar.gz
+          if-no-files-found: error
           retention-days: 30
 
   aggregate:
@@ -150,9 +155,20 @@ jobs:
           pattern: mcp-granite-*
           path: combined
 
+      - name: Unpack portable shard artifacts
+        run: |
+          mkdir -p unpacked
+          find combined -type f -name '*.tar.gz' -print0 | while IFS= read -r -d '' f; do
+            d="unpacked/$(basename "$f" .tar.gz)"
+            mkdir -p "$d"
+            tar -xzf "$f" -C "$d"
+          done
+          find unpacked -name results.jsonl -print | sort
+          test "$(find unpacked -name results.jsonl | wc -l)" -eq 27
+
       - name: Analyze without dropping failures
         run: |
-          python experiments/mcp_granite_broad/analyze.py combined --out analysis | tee analysis_stdout.txt
+          python experiments/mcp_granite_broad/analyze.py unpacked --out analysis | tee analysis_stdout.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
